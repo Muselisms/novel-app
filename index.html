@@ -1,29 +1,30 @@
 <!DOCTYPE html>
 <html lang="th">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แสงจันทร์ขาวเขากลับมาแล้ว (白月光他回来了) - โดย นี่เหลียน (逆联)</title>
-    <!-- โหลด Tailwind CSS สำหรับจัดการ Layout และ Responsive -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- โหลดฟอนต์ภาษาไทยและจีนที่เหมาะกับการอ่านนิยาย (Sarabun, Noto Serif Thai, Noto Serif SC) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Noto+Serif+Thai:wght@400;600;700&family=Sarabun:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-    
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Sarabun', 'sans-serif'],
-                        serif: ['"Noto Serif Thai"', '"Noto Serif SC"', 'serif'],
-                    }
-                }
-            }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>แสงจันทร์ขาวเขากลับมาแล้ว (白月光他回来了) - โดย นี่เหลียน (逆联)</title>
+  <!-- โหลด Supabase JS SDK สำหรับบันทึกและดึงข้อมูลตอนนิยายออนไลน์ -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- โหลด Tailwind CSS สำหรับจัดการ Layout และ Responsive -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- โหลดฟอนต์ภาษาไทยและจีนที่เหมาะกับการอ่านนิยาย (Sarabun, Noto Serif Thai, Noto Serif SC) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Noto+Serif+Thai:wght@400;600;700&family=Sarabun:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Sarabun', 'sans-serif'],
+            serif: ['"Noto Serif Thai"', '"Noto Serif SC"', 'serif'],
+          }
         }
-    </script>
+      }
+    }
+  </script>
 </head>
 <body class="bg-[#F9F9F9] text-[#222222] font-sans transition-colors duration-300 antialiased selection:bg-amber-200 selection:text-stone-900">
 
@@ -5750,6 +5751,82 @@
                 }
             };
         }
+    <script>
+const SUPABASE_URL = 'https://nemhrwjfldylkibyvcyr.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_ByESTtmvE_zlhvQQTzXqJg_cJWD52Tj';
+const supabaseClient = window.supabase
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+async function syncChaptersFromSupabase() {
+  if (!supabaseClient || typeof novelChapters === 'undefined') return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('chapters')
+      .select('*')
+      .order('chapter_number', { ascending: true });
+
+    if (error) throw error;
+
+    if (Array.isArray(data) && data.length > 0) {
+      novelChapters.length = 0;
+      data.forEach((row) => novelChapters.push(row));
+      if (typeof renderTocList === 'function') {
+        const searchEl = document.getElementById('tocSearchInput');
+        renderTocList(searchEl ? searchEl.value : '');
+      }
+      if (typeof loadChapter === 'function') {
+        const targetId =
+          typeof currentChapterId !== 'undefined' && currentChapterId
+            ? currentChapterId
+            : novelChapters[0].id;
+        loadChapter(targetId, false);
+      }
+    } else if (novelChapters.length > 0) {
+      const seedRows = novelChapters.map((ch, idx) => ({
+        id: String(ch.id ?? `ch-${idx + 1}`),
+        novel_title: ch.novel_title || 'แสงจันทร์ขาวเขากลับมาแล้ว',
+        chapter_number: Number(ch.chapter_number ?? idx + 1),
+        title: ch.title || `ตอนที่ ${idx + 1}`,
+        content: ch.content || '',
+        updated_at: new Date().toISOString(),
+      }));
+      await supabaseClient.from('chapters').upsert(seedRows, { onConflict: 'id' });
+    }
+  } catch (err) {
+    console.error('โหลดข้อมูลจาก Supabase ไม่สำเร็จ:', err);
+  }
+}
+
+async function saveChapterToSupabase(chapterObj) {
+  if (!supabaseClient) return;
+  const payload = {
+    id: String(chapterObj.id),
+    novel_title: chapterObj.novel_title || 'แสงจันทร์ขาวเขากลับมาแล้ว',
+    chapter_number: Number(chapterObj.chapter_number),
+    title: chapterObj.title,
+    content: chapterObj.content || '',
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabaseClient
+    .from('chapters')
+    .upsert(payload, { onConflict: 'id' });
+
+  if (error) {
+    if (typeof showEditorMessage === 'function') {
+      showEditorMessage('บันทึกออนไลน์ไม่สำเร็จ: ' + error.message, false);
+    }
+    throw error;
+  }
+
+  if (typeof showEditorMessage === 'function') {
+    showEditorMessage('บันทึกออนไลน์เรียบร้อยแล้ว', true);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  syncChaptersFromSupabase();
+});
     </script>
 </body>
 </html>
